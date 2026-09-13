@@ -6,15 +6,23 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "migrate": "node --env-file=.env.local scripts/migrate.mjs",
+    "seed-user": "node --env-file=.env.local scripts/seed-admin.mjs"
   },
   "dependencies": {
+    "jose": "^6.2.12",
+    "luxon": "^3.7.2",
+    "mysql2": "^3.24.4",
     "next": "16.3.5",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/luxon": "^3.7.5",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
