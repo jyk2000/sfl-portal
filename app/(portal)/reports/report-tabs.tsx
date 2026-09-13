@@ -447,14 +447,14 @@ export function ReportTabs({
               onClick={() => setActive(tab.key)}
               className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition ${
                 isActive
-                  ? "bg-white font-semibold text-indigo-700 shadow-sm ring-1 ring-slate-200"
+                  ? "bg-slate-900 font-semibold text-white shadow-sm"
                   : "font-medium text-slate-600 hover:bg-slate-200/70 hover:text-slate-900"
               }`}
             >
               {tab.label}
               <span
                 className={`rounded-full px-1.5 py-0.5 text-[11px] tabular-nums ${
-                  isActive ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/80 text-slate-600"
+                  isActive ? "bg-slate-700 text-white" : "bg-slate-200/80 text-slate-600"
                 }`}
               >
                 {tab.count}
