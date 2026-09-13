@@ -50,14 +50,15 @@ export async function createDriverAction(
   }
 
   try {
-    const { id } = await createDriver(readInput(formData), {
+    const { id, changes } = await createDriver(readInput(formData), {
       id: user.id,
       username: user.username,
     });
     revalidatePath("/drivers");
     revalidatePath("/plans");
     revalidatePath("/reports");
-    return { ok: true, message: `Added the driver (#${id}).` };
+    const name = changes[0]?.newValue ?? "New driver";
+    return { ok: true, message: `Added ${name} (#${id}).` };
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Could not add the driver.",

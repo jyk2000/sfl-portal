@@ -200,8 +200,11 @@ export function CreateDriverForm({
     {},
   );
 
+  // Remount the fields after a successful add so the next entry starts blank.
+  const formKey = state.ok ? `added:${state.message}` : "new-driver";
+
   return (
-    <form action={formAction} className="space-y-3">
+    <form key={formKey} action={formAction} className="space-y-3">
       <Fields yards={yards} locations={locations} />
       <div className="flex items-center gap-3">
         <button type="submit" className={BUTTON} disabled={pending}>

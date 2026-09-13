@@ -2,14 +2,7 @@ import Link from "next/link";
 
 import { Badge, Card, PageHeader } from "@/components/ui";
 import { canEdit, requireUser } from "@/lib/dal";
-import {
-  HOME_YARDS,
-  listDrivers,
-  listLocationCodes,
-  listPendingSenders,
-} from "@/lib/drivers";
-
-import { CreateDriverForm } from "./driver-forms";
+import { listDrivers, listPendingSenders } from "@/lib/drivers";
 
 export const metadata = { title: "Drivers" };
 
@@ -20,9 +13,8 @@ export default async function DriversPage() {
   const user = await requireUser();
   const editable = canEdit(user);
 
-  const [drivers, locations, pending] = await Promise.all([
+  const [drivers, pending] = await Promise.all([
     listDrivers(),
-    listLocationCodes(),
     listPendingSenders(),
   ]);
 
@@ -33,6 +25,16 @@ export default async function DriversPage() {
       <PageHeader
         title="Drivers"
         description={`${drivers.length} on the roster (${active} active). The bot matches an incoming Telegram message against these rows, so a name here is what every report shows.`}
+        actions={
+          editable ? (
+            <Link
+              href="/drivers/new"
+              className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+            >
+              Add New Driver
+            </Link>
+          ) : null
+        }
       />
 
       {!editable ? (
@@ -47,7 +49,7 @@ export default async function DriversPage() {
       {pending.length > 0 ? (
         <Card
           title="Telegram users not on the roster"
-          subtitle="These people have messaged the bot but are not registered, so the bot ignores them. Copy an ID into the form below to add them."
+          subtitle="These people have messaged the bot but are not registered, so the bot ignores them. Copy an ID into Add New Driver to register them."
         >
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -73,15 +75,6 @@ export default async function DriversPage() {
               </tbody>
             </table>
           </div>
-        </Card>
-      ) : null}
-
-      {editable ? (
-        <Card
-          title="Add a driver"
-          subtitle="Only the display name is required. Without a Telegram ID the bot cannot match their messages, so add it when you can."
-        >
-          <CreateDriverForm yards={HOME_YARDS} locations={locations} />
         </Card>
       ) : null}
 

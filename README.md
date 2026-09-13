@@ -94,7 +94,8 @@ app/
     audit/page.tsx       every field change, newest first
     reports/page.tsx      the reporting tables, one per tab (see below)
     reports/report-tabs.tsx  client-side tab bar for the reports
-    drivers/page.tsx     driver roster + add form
+    drivers/page.tsx     driver roster (with an Add New Driver button)
+    drivers/new/page.tsx   add a driver
     drivers/[id]/page.tsx  one driver: edit form + change history
     plans/page.tsx       daily plan entry (planned counts per driver)
     admin/users/page.tsx user management (administrators only)
@@ -191,7 +192,8 @@ same scrypt hashing as `npm run seed-user`.
 
 ## Drivers
 
-`/drivers` is the roster the bot matches an incoming Telegram message against;
+`/drivers` is the roster the bot matches an incoming Telegram message against,
+with an **Add New Driver** button that opens its own page (`/drivers/new`);
 `/drivers/[id]` edits one driver and shows its change history.
 
 - **Editable fields** — display name (required, and the name every report
@@ -200,7 +202,7 @@ same scrypt hashing as `npm run seed-user`.
   so `short_name` / `name_kor` matter as much as the display name.
 - **Adding a driver** — only the display name is required, but without a
   Telegram ID the bot cannot match their messages. Anyone who has messaged the
-  bot without being registered is listed on the page (from the bot's
+  bot without being registered is listed on the roster page (from the bot's
   `unknown_senders`) with their id ready to copy across.
 - **Auditing** — every changed field writes a `driver_edits` row naming the
   editor, so a rename or a deactivation is traceable, exactly as with leg edits.
