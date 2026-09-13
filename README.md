@@ -134,10 +134,15 @@ value falls back to the departure time. A non-default sort survives paging and
 filter changes.
 
 Columns are Depart, **ETA**, **Arrival**, Driver, Status, Load,
-Origin → Destination, Trailer, BOL, Type, Round. ETA is
-`departure_time + eta_minutes`, the same rule the reports use, so it reads "—"
-until the bot records `eta_minutes` for a leg (the committed dev replay has it
-empty on every row; production legs carry it).
+Origin → Destination, Trailer, BOL, Type, Round.
+
+**ETA** is the leg's allowance: `shuttle_legs.eta_minutes` when the bot recorded
+one, otherwise the same lookup `bot/eta.py` would have done —
+`FLOOR(COALESCE(weighted_minutes, drive_minutes))` from `location_distances` for
+that origin → destination. Both live in `lib/eta.ts` and the reports use the
+same fragments. A lane with **no row in `location_distances`** has no allowance
+to show and reads "—", so an empty ETA means that lane is missing from the
+distance table.
 
 ## Reports
 

@@ -2,6 +2,7 @@ import "server-only";
 
 import { query } from "@/lib/db";
 import { DELAY_THRESHOLDS, LOAD_TYPES } from "@/lib/dashboard-defs";
+import { ETA_CLOCK, ETA_DELAY_MINUTES, ETA_JOIN } from "@/lib/eta";
 import { getPlanDrivers } from "@/lib/plans";
 
 /** One leg, shaped for the delivery-summary tables. Times are display strings. */
@@ -26,13 +27,11 @@ const LEG_COLUMNS = `
   l.id, l.user_id, d.driver_name, l.trailer_number, l.bol_number,
   l.origin_location, l.destination_location, l.load_type,
   DATE_FORMAT(l.departure_time, '%H:%i') AS departure,
-  CASE WHEN l.departure_time IS NOT NULL AND l.eta_minutes IS NOT NULL
-       THEN DATE_FORMAT(DATE_ADD(l.departure_time, INTERVAL l.eta_minutes MINUTE), '%H:%i')
-  END AS eta,
+  ${ETA_CLOCK} AS eta,
   DATE_FORMAT(l.arrival_time, '%H:%i') AS arrival,
   DATE_FORMAT(l.finished_time, '%H:%i') AS finished,
-  CASE WHEN l.departure_time IS NOT NULL AND l.eta_minutes IS NOT NULL AND l.arrival_time IS NOT NULL
-       THEN TIMESTAMPDIFF(MINUTE, DATE_ADD(l.departure_time, INTERVAL l.eta_minutes MINUTE), l.arrival_time)
+  CASE WHEN l.departure_time IS NOT NULL AND l.arrival_time IS NOT NULL
+       THEN ${ETA_DELAY_MINUTES}
   END AS transit_delay,
   CASE WHEN l.arrival_time IS NOT NULL AND l.finished_time IS NOT NULL
        THEN TIMESTAMPDIFF(MINUTE, l.arrival_time, l.finished_time)
@@ -40,7 +39,8 @@ const LEG_COLUMNS = `
 
 const LEG_FROM = `
   FROM shuttle_legs l
-  LEFT JOIN driver_profiles d ON d.user_id = l.user_id`;
+  LEFT JOIN driver_profiles d ON d.user_id = l.user_id
+  ${ETA_JOIN}`;
 
 async function fetchLegs(
   date: string,
@@ -94,6 +94,7 @@ export async function getDriverLocations(date: string): Promise<LegSummaryRow[]>
         WHERE DATE(departure_time) = ?
      ) l
      LEFT JOIN driver_profiles d ON d.user_id = l.user_id
+     ${ETA_JOIN}
      WHERE l.rn = 1
      ORDER BY l.departure_time`,
     [date],
@@ -113,6 +114,7 @@ export async function getTrailerLocations(date: string): Promise<LegSummaryRow[]
         WHERE DATE(departure_time) = ? AND trailer_number IS NOT NULL
      ) l
      LEFT JOIN driver_profiles d ON d.user_id = l.user_id
+     ${ETA_JOIN}
      WHERE l.rn = 1
      ORDER BY l.departure_time`,
     [date],
@@ -160,9 +162,7 @@ export async function getRmDeliverySummary(date: string): Promise<RmSummaryRow[]
             COALESCE(r.reservation_no, l.bol_number) AS bol_number,
             d.driver_name,
             DATE_FORMAT(l.departure_time, '%H:%i') AS departure,
-            CASE WHEN l.departure_time IS NOT NULL AND l.eta_minutes IS NOT NULL
-                 THEN DATE_FORMAT(DATE_ADD(l.departure_time, INTERVAL l.eta_minutes MINUTE), '%H:%i')
-            END AS eta,
+            ${ETA_CLOCK} AS eta,
             DATE_FORMAT(l.arrival_time, '%H:%i') AS arrival,
             DATE_FORMAT(l.finished_time, '%H:%i') AS finished,
             COALESCE(
@@ -175,6 +175,7 @@ export async function getRmDeliverySummary(date: string): Promise<RmSummaryRow[]
             i.item
        FROM shuttle_legs l
        LEFT JOIN driver_profiles d ON d.user_id = l.user_id
+       ${ETA_JOIN}
        LEFT JOIN rm_loads r ON r.leg_id = l.id
        LEFT JOIN (
          SELECT rm_load_id,

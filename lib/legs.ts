@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getPool, query, queryOne } from "@/lib/db";
+import { ETA_CLOCK, ETA_JOIN, ETA_MINUTES } from "@/lib/eta";
 import { fromDatetimeLocal } from "@/lib/format";
 import { LEG_FIELD_BY_NAME, type LegFieldDef } from "@/lib/leg-fields";
 
@@ -76,8 +77,8 @@ export interface FilterOptions {
 const LIST_COLUMNS = `
   l.id, l.user_id, d.driver_name, l.trailer_number, l.bol_number, l.document_type,
   l.load_status, l.origin_location, l.destination_location, l.departure_time,
-  l.eta_minutes,
-  DATE_FORMAT(DATE_ADD(l.departure_time, INTERVAL l.eta_minutes MINUTE), '%H:%i') AS eta,
+  ${ETA_MINUTES} AS eta_minutes,
+  ${ETA_CLOCK} AS eta,
   l.arrival_time, l.finished_time, l.leg_status, l.load_type, l.route_code,
   l.round_number, l.is_positioning_leg, (l.bol_image IS NOT NULL) AS has_bol`;
 
@@ -165,6 +166,7 @@ export async function listLegs(
     `SELECT ${LIST_COLUMNS}
        FROM shuttle_legs l
        LEFT JOIN driver_profiles d ON d.user_id = l.user_id
+       ${ETA_JOIN}
        ${clause}
       ${buildOrderBy(filters.sort, filters.dir)}
       LIMIT ${safeSize} OFFSET ${offset}`,
