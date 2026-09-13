@@ -45,11 +45,18 @@ export async function createLegAction(
     input.user_id = driverEntry;
   }
 
+  const upload = formData.get("bol_image");
+  const bolImage =
+    upload instanceof File && upload.size > 0
+      ? Buffer.from(await upload.arrayBuffer())
+      : null;
+
   try {
-    const { id } = await createLeg(input, {
-      id: user.id,
-      username: user.username,
-    });
+    const { id } = await createLeg(
+      input,
+      { id: user.id, username: user.username },
+      bolImage,
+    );
 
     revalidatePath("/legs");
     revalidatePath("/");

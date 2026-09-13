@@ -92,6 +92,7 @@ app/
     legs/page.tsx        filterable, paginated leg list (with an Add Leg button)
     legs/new/page.tsx    add a leg the bot never captured
     legs/leg-field-input.tsx  the shared labelled control for one leg field
+    api/parse-bol/route.ts    reads an uploaded BOL (see lib/bol-parse.ts)
     legs/[id]/page.tsx   leg detail: edit form, BOL, per-leg history
     audit/page.tsx       every field change, newest first
     reports/page.tsx      the reporting tables, one per tab (see below)
@@ -142,6 +143,23 @@ driver and the departure are required. `eta_minutes` is filled from
 `location_distances` when one exists, and the leg gets a `created` row in
 `leg_edits`, so a hand-added leg is as traceable as a correction.
 
+**Reading the BOL.** The same page takes a photo or scan of the paperwork and
+fills the form from it. The reading is done by the **bot's own extractor** —
+`app/api/parse-bol/route.ts` → `lib/bol-parse.ts` → `freight_bot/tools/parse_bol.py`,
+which calls `ai_engine.extract_bol_locally()` — rather than a second copy of the
+vision prompt in TypeScript, so the portal and the bot can never disagree about
+what a BOL says. `lib/bol-fields.ts` maps what comes back onto leg fields: BOL #,
+trailer, DO #, dock, RM seq, document type, the two signatures, and the
+destination (the BOL's ship-to, resolved against `location_codes`). The uploaded
+file is sent on with the leg and stored in `bol_image`, so the leg's document
+viewer shows it.
+
+Server settings for that path: `FREIGHT_BOT_DIR` (defaults to `../../freight_bot`
+from the portal) and `PYTHON_BIN` (defaults to `python3`). The interpreter needs
+the bot's own dependencies — `python3 -m pip install -r bot/requirements.txt`.
+The script connects to MySQL to load the address map, and picks up the portal's
+`DB_*` settings as `MYSQL_*`, so no second database configuration is needed.
+
 **Dropdowns.** `Transaction type` offers the sheet's Transaction list (column F
 of its Base Form) and `Load type` its Load Type list (column G); both live in
 `lib/leg-fields.ts`. `Load status` is deliberately **not** editable — it is the
@@ -150,6 +168,7 @@ assigns a load type when it reads `LOADED`, and `bot/leg_cases.py` uses it to
 find the leg still in progress. The dispatcher's vocabulary lives in the new
 `transaction_type` column instead. A select keeps a value its list does not
 carry as a `(not in list)` option, so saving a leg can never silently blank one.
+
 
 Columns are Depart, **ETA**, **Arrival**, Driver, Status, Load,
 Origin → Destination, Trailer, BOL, Type, Round.

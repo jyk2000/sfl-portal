@@ -325,10 +325,14 @@ export interface LegCreateResult {
  *
  * `eta_minutes` is filled from `location_distances` when the caller leaves it
  * blank, which is the lookup bot/eta.py would have done at departure.
+ *
+ * `bolImage` is the paperwork the leg was read from, stored the way the bot
+ * stores it so the BOL viewer shows a hand-added leg's document too.
  */
 export async function createLeg(
   input: Record<string, unknown>,
   actor: { id: number; username: string },
+  bolImage?: Buffer | null,
 ): Promise<LegCreateResult> {
   const columns: string[] = [];
   const params: unknown[] = [];
@@ -374,6 +378,11 @@ export async function createLeg(
     if (minutes !== null && minutes !== undefined) {
       columns.push("`eta_minutes`");
       params.push(minutes);
+    }
+
+    if (bolImage && bolImage.length > 0) {
+      columns.push("`bol_image`");
+      params.push(bolImage);
     }
 
     const [result] = await conn.query(

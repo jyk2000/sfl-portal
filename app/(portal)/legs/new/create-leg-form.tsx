@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { createLegAction, type UpdateLegState } from "@/app/actions/legs";
+import { bolSummary, bolToLegValues, type BolParse } from "@/lib/bol-fields";
 import {
   LEG_CREATE_FIELDS,
   LEG_FIELD_BY_NAME,
@@ -20,18 +21,114 @@ export interface DriverChoice {
   driver_name: string | null;
 }
 
+/** Fields the BOL reader can fill, for the "filled in" note. */
+const READABLE = new Set([
+  "bol_number",
+  "trailer_number",
+  "do_number",
+  "dock_number",
+  "rm_seq",
+  "destination_location",
+  "document_type",
+  "shipper_signed",
+  "receiver_signed",
+]);
+
 export function CreateLegForm({ drivers }: { drivers: DriverChoice[] }) {
   const [state, formAction, pending] = useActionState<UpdateLegState, FormData>(
     createLegAction,
     {},
   );
 
+  const [reading, setReading] = useState(false);
+  const [readError, setReadError] = useState<string | null>(null);
+  const [readNote, setReadNote] = useState<string | null>(null);
+  const [readFields, setReadFields] = useState<string[]>([]);
+  // Bumped on every successful read: the fields below are uncontrolled, so they
+  // have to be remounted for new defaults to take effect.
+  const [version, setVersion] = useState(0);
+  const [prefill, setPrefill] = useState<Record<string, string>>({});
+
   const fields = LEG_CREATE_FIELDS.map((name) => LEG_FIELD_BY_NAME[name]).filter(
     (def): def is LegFieldDef => Boolean(def),
   );
 
+  async function readBol(file: File) {
+    setReading(true);
+    setReadError(null);
+    setReadNote(null);
+    setReadFields([]);
+
+    try {
+      const body = new FormData();
+      body.append("image", file);
+      const response = await fetch("/api/parse-bol", { method: "POST", body });
+      const payload = (await response.json()) as {
+        fields?: BolParse;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.fields) {
+        setReadError(payload.error ?? "Could not read that file.");
+        return;
+      }
+
+      const values = bolToLegValues(payload.fields);
+      setPrefill(values);
+      setReadNote(bolSummary(payload.fields));
+      setReadFields(
+        Object.keys(values)
+          .filter((name) => READABLE.has(name))
+          .map((name) => LEG_FIELD_BY_NAME[name]?.label ?? name),
+      );
+      setVersion((n) => n + 1);
+    } catch {
+      setReadError("Could not reach the BOL reader.");
+    } finally {
+      setReading(false);
+    }
+  }
+
   return (
     <form action={formAction} className="space-y-5">
+      <fieldset className="rounded-lg border border-slate-200 p-4">
+        <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          BOL photo
+        </legend>
+        <p className="mb-3 text-xs text-slate-500">
+          Upload the paperwork and the bot&apos;s own BOL reader fills the fields
+          below. The image is saved on the leg, so it shows in the leg&apos;s
+          document viewer afterwards.
+        </p>
+        <input
+          type="file"
+          name="bol_image"
+          accept="image/*,application/pdf"
+          disabled={reading}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void readBol(file);
+          }}
+          className="block w-full cursor-pointer rounded-md border border-slate-300 text-sm text-slate-700 file:mr-3 file:cursor-pointer file:rounded-l-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 disabled:opacity-60"
+        />
+        {reading ? (
+          <p className="mt-2 text-sm text-slate-600">Reading the BOL…</p>
+        ) : null}
+        {readNote ? (
+          <p className="mt-2 text-sm text-slate-700">{readNote}</p>
+        ) : null}
+        {readFields.length ? (
+          <p className="mt-1 text-xs text-emerald-700">
+            Filled in: {readFields.join(", ")}.
+          </p>
+        ) : null}
+        {readError ? (
+          <p role="alert" className="mt-2 text-sm text-red-700">
+            {readError}
+          </p>
+        ) : null}
+      </fieldset>
+
       <fieldset className="rounded-lg border border-slate-200 p-4">
         <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
           Driver
@@ -66,12 +163,18 @@ export function CreateLegForm({ drivers }: { drivers: DriverChoice[] }) {
         <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
           The leg
         </legend>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div
+          key={version}
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+        >
           {fields.map((def) => (
             <LegFieldInput
               key={def.name}
               def={def}
-              value={def.name === "leg_status" ? DEFAULT_LEG_STATUS : ""}
+              value={
+                prefill[def.name] ??
+                (def.name === "leg_status" ? DEFAULT_LEG_STATUS : "")
+              }
               suggestions={
                 def.name === "origin_location" ||
                 def.name === "destination_location"
@@ -90,7 +193,7 @@ export function CreateLegForm({ drivers }: { drivers: DriverChoice[] }) {
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || reading}
           className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {pending ? "Adding…" : "Add leg"}
