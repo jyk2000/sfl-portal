@@ -15,6 +15,9 @@ export interface LegListRow {
   origin_location: string;
   destination_location: string;
   departure_time: string | null;
+  /** Departure + the lane's expected minutes, as "HH:MM". */
+  eta: string | null;
+  eta_minutes: number | null;
   arrival_time: string | null;
   finished_time: string | null;
   leg_status: string;
@@ -38,6 +41,17 @@ export interface LegFilters {
   legStatus?: string | null;
   loadStatus?: string | null;
   q?: string | null;
+  /** Column to order by; anything else falls back to the departure time. */
+  sort?: LegSort | null;
+  dir?: "asc" | "desc" | null;
+}
+
+export type LegSort = "depart" | "driver";
+
+export const LEG_SORTS: readonly LegSort[] = ["depart", "driver"];
+
+export function isLegSort(value: unknown): value is LegSort {
+  return typeof value === "string" && (LEG_SORTS as readonly string[]).includes(value);
 }
 
 export interface LegListResult {
@@ -62,8 +76,24 @@ export interface FilterOptions {
 const LIST_COLUMNS = `
   l.id, l.user_id, d.driver_name, l.trailer_number, l.bol_number, l.document_type,
   l.load_status, l.origin_location, l.destination_location, l.departure_time,
+  l.eta_minutes,
+  DATE_FORMAT(DATE_ADD(l.departure_time, INTERVAL l.eta_minutes MINUTE), '%H:%i') AS eta,
   l.arrival_time, l.finished_time, l.leg_status, l.load_type, l.route_code,
   l.round_number, l.is_positioning_leg, (l.bol_image IS NOT NULL) AS has_bol`;
+
+/**
+ * Ordering is built from a fixed map rather than from the query string, so a
+ * sort parameter can only ever name a column we chose.
+ */
+function buildOrderBy(sort?: LegSort | null, dir?: "asc" | "desc" | null): string {
+  const direction = dir === "asc" ? "ASC" : "DESC";
+  if (sort === "driver") {
+    // Drivers with no name on file sort to the end in both directions.
+    return `ORDER BY (d.driver_name IS NULL), d.driver_name ${direction},
+                     l.departure_time DESC, l.id DESC`;
+  }
+  return `ORDER BY l.departure_time ${direction}, l.id ${direction}`;
+}
 
 function buildWhere(filters: LegFilters): {
   clause: string;
@@ -136,7 +166,7 @@ export async function listLegs(
        FROM shuttle_legs l
        LEFT JOIN driver_profiles d ON d.user_id = l.user_id
        ${clause}
-      ORDER BY l.departure_time DESC, l.id DESC
+      ${buildOrderBy(filters.sort, filters.dir)}
       LIMIT ${safeSize} OFFSET ${offset}`,
     params,
   );

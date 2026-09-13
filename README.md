@@ -123,6 +123,22 @@ scripts/seed-admin.mjs   creates/updates a user
 proxy.ts                 optimistic auth gate for page routes
 ```
 
+## Shuttle legs
+
+`/legs` lists every recorded leg with filters for day, driver, origin,
+destination, leg status, load status and free text, and pages 25 at a time. The
+**Depart** and **Driver** column headings are sort links: clicking one sorts by
+it ascending, clicking it again flips the direction. Ordering is built from a
+fixed map in `lib/legs.ts`, never from the query string, so an unknown `sort`
+value falls back to the departure time. A non-default sort survives paging and
+filter changes.
+
+Columns are Depart, **ETA**, **Arrival**, Driver, Status, Load,
+Origin → Destination, Trailer, BOL, Type, Round. ETA is
+`departure_time + eta_minutes`, the same rule the reports use, so it reads "—"
+until the bot records `eta_minutes` for a leg (the committed dev replay has it
+empty on every row; production legs carry it).
+
 ## Reports
 
 `/reports?date=YYYY-MM-DD` (defaults to the most recent day with legs) shows the

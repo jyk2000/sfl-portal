@@ -12,15 +12,47 @@ import { LEG_STATUS_OPTIONS, LOAD_STATUS_OPTIONS } from "@/lib/leg-fields";
 import {
   getAvailableDates,
   getFilterOptions,
+  isLegSort,
   listLegs,
   resolveDate,
   type LegFilters,
+  type LegSort,
 } from "@/lib/legs";
 
 export const metadata = { title: "Shuttle Legs" };
 
 const selectClass =
   "w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 shadow-sm";
+
+/** A column header that links to the sorted view of this list. */
+function SortHeader({
+  label,
+  href,
+  active,
+  dir,
+}: {
+  label: string;
+  href: string;
+  active: boolean;
+  dir: "asc" | "desc";
+}) {
+  return (
+    <th className="px-3 py-2">
+      <Link
+        href={href}
+        className={`inline-flex items-center gap-1 hover:text-slate-900 ${
+          active ? "text-slate-900" : ""
+        }`}
+        title={`Sort by ${label.toLowerCase()}`}
+      >
+        {label}
+        <span className={active ? "text-indigo-600" : "text-slate-300"}>
+          {active ? (dir === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </Link>
+    </th>
+  );
+}
 
 export default async function LegsPage({
   searchParams,
@@ -46,6 +78,8 @@ export default async function LegsPage({
     legStatus: one("status") ?? null,
     loadStatus: one("load") ?? null,
     q: one("q") ?? null,
+    sort: isLegSort(one("sort")) ? (one("sort") as LegSort) : "depart",
+    dir: one("dir") === "asc" ? "asc" : "desc",
   };
 
   const requestedPage = Number(one("page") ?? 1);
@@ -73,10 +107,34 @@ export default async function LegsPage({
     put("status", filters.legStatus);
     put("load", filters.loadStatus);
     put("q", filters.q);
+    // Keep a non-default sort across pagination and filter changes.
+    if (filters.sort && filters.sort !== "depart") put("sort", filters.sort);
+    if (filters.dir && filters.dir !== "desc") put("dir", filters.dir);
     for (const [key, value] of Object.entries(overrides)) put(key, value);
     const qs = sp.toString();
     return qs ? `/legs?${qs}` : "/legs";
   };
+
+  const currentSort: LegSort = filters.sort ?? "depart";
+  const currentDir = filters.dir ?? "desc";
+
+  /**
+   * Clicking the sorted column flips it; clicking another column starts
+   * ascending. Anything else would leave the reader guessing.
+   */
+  const sortHref = (column: LegSort) =>
+    hrefFor({
+      sort: column,
+      dir: currentSort === column && currentDir === "asc" ? "desc" : "asc",
+      page: 1,
+    });
+
+  const sortHeaderProps = (column: LegSort, label: string) => ({
+    label,
+    href: sortHref(column),
+    active: currentSort === column,
+    dir: currentDir,
+  });
 
   return (
     <div>
@@ -266,8 +324,10 @@ export default async function LegsPage({
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-3 py-2">Depart</th>
-              <th className="px-3 py-2">Driver</th>
+              <SortHeader {...sortHeaderProps("depart", "Depart")} />
+              <th className="px-3 py-2">ETA</th>
+              <th className="px-3 py-2">Arrival</th>
+              <SortHeader {...sortHeaderProps("driver", "Driver")} />
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Load</th>
               <th className="px-3 py-2">Origin → Destination</th>
@@ -281,7 +341,7 @@ export default async function LegsPage({
           <tbody className="divide-y divide-slate-100">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-3 py-10 text-center text-slate-500">
+                <td colSpan={12} className="px-3 py-10 text-center text-slate-500">
                   No legs found.
                 </td>
               </tr>
@@ -290,6 +350,12 @@ export default async function LegsPage({
                 <tr key={leg.id} className="hover:bg-slate-50">
                   <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
                     {fmtTime(leg.departure_time)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-500">
+                    {leg.eta ?? "—"}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
+                    {fmtTime(leg.arrival_time)}
                   </td>
                   <td className="px-3 py-2 text-slate-800">
                     {leg.driver_name ?? `Driver ${leg.user_id}`}
