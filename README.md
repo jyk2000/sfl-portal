@@ -94,9 +94,11 @@ app/
     audit/page.tsx       every field change, newest first
     dashboards/page.tsx  the nine reporting tables (see below)
     plans/page.tsx       daily plan entry (planned counts per driver)
+    admin/users/page.tsx user management (administrators only)
   actions/auth.ts        login / logout Server Actions
   actions/legs.ts        updateLeg Server Action
   actions/plans.ts       savePlan Server Action
+  actions/users.ts       create user / set role / set password
   api/bol/[id]/route.ts  streams the BOL blob (own auth check)
 components/              nav + UI primitives
 lib/
@@ -118,11 +120,16 @@ proxy.ts                 optimistic auth gate for page routes
 ## Dashboards
 
 `/dashboards?date=YYYY-MM-DD` (defaults to the most recent day with legs)
-renders, all live from the bot's `shuttle_legs` (the RM table from `rm_loads`):
+renders, all live from the bot's `shuttle_legs` (the RM table also reads
+`rm_loads`):
 
 1. **Planned vs Done** — per team/driver × load type, shown as `planned / done`.
    Planned comes from `/plans`; Done is counted from the recorded legs.
-2. **RM Delivery Summary** — from the bot's `rm_loads` + `rm_load_items`
+2. **RM Delivery Summary** — every RM move that has departed, taken from
+   `shuttle_legs`; the bot's `rm_loads` row (written at departure) supplies the
+   seq and material detail via `leg_id`, and its location code is resolved
+   through `location_codes`. A load therefore appears as soon as the departure
+   is reported, even if the bot could not file the paperwork.
 3. **FG STO Delivery Summary** — loaded legs with `load_type = 'FG STO'`
 4. **FG ES ADV** — loaded legs with `load_type = 'FG SDS'` (the SDS ⇄ 300 lane;
    300 is ES ADV FNS)
@@ -158,6 +165,24 @@ plan, not a record of what happened.
 data has that column empty, so ETA shows "—" and only the unload-time criterion
 fires; production legs written by the bot do carry it.
 
+## Users
+
+`/admin/users` (administrators only; hidden from the nav for other roles, and
+the page itself calls `requireRole(["admin"])`) lets an administrator:
+
+- **create an account** — username, optional display name, role, password;
+- **change a role or deactivate an account** — both revoke that user's existing
+  sessions by bumping `token_version`;
+- **set a password** for any account — resetting someone else's also signs them
+  out everywhere, while changing your own leaves you signed in.
+
+Guard rails: you cannot change your own role or deactivate yourself, and the
+last active administrator cannot be demoted or deactivated, so the site cannot
+be locked out. Usernames are 3–32 characters of letters, digits, `.`, `-`, `_`;
+passwords are at least 8 characters. Actions re-check the admin role themselves
+rather than trusting the page, and every account is still created through the
+same scrypt hashing as `npm run seed-user`.
+
 ## Timestamps
 
 Every shuttle timestamp is **Eastern wall-clock with no zone**. The pool uses
@@ -178,10 +203,12 @@ PORT=3000 npm run start      # keep it alive with pm2 / systemd
 Put nginx in front for TLS (the existing `SFL-WEB` certificate). Because
 `mysql2` is listed in `serverExternalPackages`, no native build step is needed.
 
-**Before going live, do not keep the development `admin` password.** Create
-real accounts with `npm run seed-user`, and give the portal its own MySQL user
-that has `SELECT`/`UPDATE` on `shuttle_legs` and full access to `web_users`,
-`leg_edits` and `daily_plan_rows` only.
+**Before going live, do not keep the development `admin` password.** Create the
+first real administrator with `npm run seed-user`, then use `/admin/users` for
+the rest. Give the portal its own MySQL user with `SELECT`/`UPDATE` on
+`shuttle_legs` (plus `SELECT` on `driver_profiles`, `rm_loads`,
+`rm_load_items`, `location_codes`) and full access to `web_users`, `leg_edits`
+and `daily_plan_rows` only.
 
 ## Still to do
 

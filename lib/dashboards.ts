@@ -124,7 +124,9 @@ export async function getTrailerLocations(date: string): Promise<LegSummaryRow[]
 // ---------------------------------------------------------------------------
 
 export interface RmSummaryRow {
-  rm_seq: number;
+  /** The leg that carried the load — the row exists from the departure report. */
+  leg_id: number;
+  rm_seq: string | null;
   pod: string | null;
   material_code: string | null;
   batch_no: string | null;
@@ -139,27 +141,57 @@ export interface RmSummaryRow {
   driver_name: string | null;
 }
 
+/**
+ * RM delivery summary, keyed on the departure report so a load appears as soon
+ * as the driver departs. The bot's `rm_loads` row (written at departure when it
+ * can read the handwritten seq) supplies the paperwork detail via `leg_id`;
+ * legs it could not file still show with the leg's own fields.
+ *
+ * The line-item and location lookups are pre-aggregated derived tables rather
+ * than `GROUP BY` on the outer query, which keeps this valid under MySQL's
+ * default `only_full_group_by`.
+ */
 export async function getRmDeliverySummary(date: string): Promise<RmSummaryRow[]> {
   return query<RmSummaryRow[]>(
-    `SELECT r.rm_seq, r.pod, r.trailer_number, r.reservation_no AS bol_number,
-            r.driver_name,
-            DATE_FORMAT(r.departure_time, '%H:%i') AS departure,
-            DATE_FORMAT(r.eta, '%H:%i') AS eta,
-            DATE_FORMAT(r.arrival_time, '%H:%i') AS arrival,
-            DATE_FORMAT(r.finished_time, '%H:%i') AS finished,
+    `SELECT l.id AS leg_id,
+            COALESCE(CAST(r.rm_seq AS CHAR), l.rm_seq) AS rm_seq,
+            COALESCE(r.pod, lc.official_name, l.destination_location) AS pod,
+            l.trailer_number,
+            COALESCE(r.reservation_no, l.bol_number) AS bol_number,
+            d.driver_name,
+            DATE_FORMAT(l.departure_time, '%H:%i') AS departure,
+            CASE WHEN l.departure_time IS NOT NULL AND l.eta_minutes IS NOT NULL
+                 THEN DATE_FORMAT(DATE_ADD(l.departure_time, INTERVAL l.eta_minutes MINUTE), '%H:%i')
+            END AS eta,
+            DATE_FORMAT(l.arrival_time, '%H:%i') AS arrival,
+            DATE_FORMAT(l.finished_time, '%H:%i') AS finished,
             COALESCE(
               r.time_taken_minutes,
-              CASE WHEN r.arrival_time IS NOT NULL AND r.finished_time IS NOT NULL
-                   THEN TIMESTAMPDIFF(MINUTE, r.arrival_time, r.finished_time) END
+              CASE WHEN l.arrival_time IS NOT NULL AND l.finished_time IS NOT NULL
+                   THEN TIMESTAMPDIFF(MINUTE, l.arrival_time, l.finished_time) END
             ) AS time_taken_minutes,
-            GROUP_CONCAT(DISTINCT i.material_code ORDER BY i.material_code SEPARATOR ', ') AS material_code,
-            GROUP_CONCAT(DISTINCT i.batch_no ORDER BY i.batch_no SEPARATOR ', ') AS batch_no,
-            GROUP_CONCAT(DISTINCT i.description SEPARATOR ', ') AS item
-       FROM rm_loads r
-       LEFT JOIN rm_load_items i ON i.rm_load_id = r.id
-      WHERE r.delivery_date = ?
-      GROUP BY r.id
-      ORDER BY r.rm_seq`,
+            i.material_code,
+            i.batch_no,
+            i.item
+       FROM shuttle_legs l
+       LEFT JOIN driver_profiles d ON d.user_id = l.user_id
+       LEFT JOIN rm_loads r ON r.leg_id = l.id
+       LEFT JOIN (
+         SELECT rm_load_id,
+                GROUP_CONCAT(DISTINCT material_code ORDER BY material_code SEPARATOR ', ') AS material_code,
+                GROUP_CONCAT(DISTINCT batch_no ORDER BY batch_no SEPARATOR ', ') AS batch_no,
+                GROUP_CONCAT(DISTINCT description SEPARATOR ', ') AS item
+           FROM rm_load_items
+          GROUP BY rm_load_id
+       ) i ON i.rm_load_id = r.id
+       LEFT JOIN (
+         SELECT canonical_code, MIN(official_name) AS official_name
+           FROM location_codes
+          GROUP BY canonical_code
+       ) lc ON lc.canonical_code = l.destination_location
+      WHERE DATE(l.departure_time) = ?
+        AND (l.load_type = 'RM' OR l.document_type = 'RM')
+      ORDER BY COALESCE(r.rm_seq, 1000000), l.departure_time`,
     [date],
   );
 }

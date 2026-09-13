@@ -241,7 +241,7 @@ export default async function DashboardsPage({
       <div className="grid gap-4 xl:grid-cols-2">
         <Card
           title="RM Delivery Summary"
-          subtitle="From the bot's rm_loads (Seq, POD, material, batch, item, times)."
+          subtitle="Loaded RM moves, listed as soon as the departure is reported; material detail comes from the bot's rm_loads."
         >
           {rm.length === 0 ? (
             <Empty />
@@ -265,8 +265,8 @@ export default async function DashboardsPage({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {rm.map((r) => (
-                  <tr key={r.rm_seq} className="hover:bg-slate-50">
-                    <td className={td}>{r.rm_seq}</td>
+                  <tr key={r.leg_id} className="hover:bg-slate-50">
+                    <td className={td}>{r.rm_seq ?? "—"}</td>
                     <td className={td}>{r.pod ?? "—"}</td>
                     <td className={td}>{r.material_code ?? "—"}</td>
                     <td className={td}>{r.batch_no ?? "—"}</td>

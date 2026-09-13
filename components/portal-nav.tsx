@@ -23,6 +23,13 @@ const LINKS = [
 export function PortalNav({ user }: { user: NavUser }) {
   const pathname = usePathname();
 
+  // User management is an administrator-only area, so it is not advertised to
+  // other roles (the page itself is guarded independently).
+  const links =
+    user.role === "admin"
+      ? [...LINKS, { href: "/admin/users", label: "Users" }]
+      : LINKS;
+
   const isActive = (href: string) =>
     href === "/"
       ? pathname === "/"
@@ -45,7 +52,7 @@ export function PortalNav({ user }: { user: NavUser }) {
         </Link>
 
         <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
-          {LINKS.map((link) => (
+          {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
