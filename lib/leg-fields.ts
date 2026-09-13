@@ -92,11 +92,12 @@ export const LEG_FIELDS: readonly LegFieldDef[] = [
     group: "Identity",
   },
   {
-    name: "load_status",
-    label: "Load status",
-    type: "enum",
-    options: LOAD_STATUS_OPTIONS,
+    name: "transaction_type",
+    label: "Transaction type",
+    type: "choice",
+    options: TRANSACTION_OPTIONS,
     group: "Identity",
+    help: "The sheet's Transaction list. The bot keeps its own load state separately.",
   },
   {
     name: "load_type",
@@ -152,7 +153,7 @@ export const LEG_FIELD_NAMES: readonly string[] = LEG_FIELDS.map((f) => f.name);
 export const LEG_CREATE_FIELDS: readonly string[] = [
   "leg_status",
   "document_type",
-  "load_status",
+  "transaction_type",
   "load_type",
   "trailer_number",
   "bol_number",

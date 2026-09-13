@@ -142,12 +142,14 @@ driver and the departure are required. `eta_minutes` is filled from
 `location_distances` when one exists, and the leg gets a `created` row in
 `leg_edits`, so a hand-added leg is as traceable as a correction.
 
-**Dropdowns.** `Load type` offers the sheet's Load Type list (column G of its
-Base Form), and `load_status` its `EMPTY`/`LOADED` values. The sheet's
-`Transaction` list (column F) and its location list are recorded in
-`lib/leg-fields.ts` alongside them. A select keeps a value its list does not
-carry as a `(not in list)` option — the bot writes load types the sheet has no
-entry for — so opening and saving a leg can never silently blank one.
+**Dropdowns.** `Transaction type` offers the sheet's Transaction list (column F
+of its Base Form) and `Load type` its Load Type list (column G); both live in
+`lib/leg-fields.ts`. `Load status` is deliberately **not** editable — it is the
+bot's own dispatch state, `enum('EMPTY','LOADED')`: `bot/load_types.py` only
+assigns a load type when it reads `LOADED`, and `bot/leg_cases.py` uses it to
+find the leg still in progress. The dispatcher's vocabulary lives in the new
+`transaction_type` column instead. A select keeps a value its list does not
+carry as a `(not in list)` option, so saving a leg can never silently blank one.
 
 Columns are Depart, **ETA**, **Arrival**, Driver, Status, Load,
 Origin → Destination, Trailer, BOL, Type, Round.
