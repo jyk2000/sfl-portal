@@ -94,11 +94,14 @@ app/
     audit/page.tsx       every field change, newest first
     reports/page.tsx      the reporting tables, one per tab (see below)
     reports/report-tabs.tsx  client-side tab bar for the reports
+    drivers/page.tsx     driver roster + add form
+    drivers/[id]/page.tsx  one driver: edit form + change history
     plans/page.tsx       daily plan entry (planned counts per driver)
     admin/users/page.tsx user management (administrators only)
   actions/auth.ts        login / logout Server Actions
   actions/legs.ts        updateLeg Server Action
   actions/plans.ts       savePlan Server Action
+  actions/drivers.ts     add / update a driver Server Action
   actions/users.ts       create user / set role / set password
   api/bol/[id]/route.ts  streams the BOL blob (own auth check)
 components/              nav + UI primitives
@@ -111,8 +114,9 @@ lib/
   dashboards.ts          the report queries behind the tabs
   dashboard-defs.ts      load types, lane rules, delay thresholds
   plans.ts               daily plan read/write
+  drivers.ts             driver roster read/write + change history
   audit.ts, users.ts, format.ts, leg-fields.ts
-db/web_schema.sql        web-only tables (web_users, leg_edits, daily_plan_rows)
+db/web_schema.sql        web-only tables (web_users, leg_edits, daily_plan_rows, driver_edits)
 scripts/migrate.mjs      applies web_schema.sql
 scripts/seed-admin.mjs   creates/updates a user
 proxy.ts                 optimistic auth gate for page routes
@@ -184,6 +188,30 @@ be locked out. Usernames are 3–32 characters of letters, digits, `.`, `-`, `_`
 passwords are at least 8 characters. Actions re-check the admin role themselves
 rather than trusting the page, and every account is still created through the
 same scrypt hashing as `npm run seed-user`.
+
+## Drivers
+
+`/drivers` is the roster the bot matches an incoming Telegram message against;
+`/drivers/[id]` edits one driver and shows its change history.
+
+- **Editable fields** — display name (required, and the name every report
+  shows), Telegram ID, Korean name, English name, short name, truck plate, home
+  repo, home yard and active. The schedule posts are matched on the name forms,
+  so `short_name` / `name_kor` matter as much as the display name.
+- **Adding a driver** — only the display name is required, but without a
+  Telegram ID the bot cannot match their messages. Anyone who has messaged the
+  bot without being registered is listed on the page (from the bot's
+  `unknown_senders`) with their id ready to copy across.
+- **Auditing** — every changed field writes a `driver_edits` row naming the
+  editor, so a rename or a deactivation is traceable, exactly as with leg edits.
+  A save that changes nothing writes nothing. The Telegram ID is unique; a
+  clash with another driver is refused with a message.
+- **Who can edit** — the same `canEdit` check as leg editing (administrator or
+  dispatcher); other roles see the roster read-only.
+
+Note the bot seeds this table from `bot/data/drivers.csv` **only when it is
+empty**, so web edits survive a bot restart. Renaming a driver also changes the
+name shown against their past legs, because reports join to this table.
 
 ## Timestamps
 

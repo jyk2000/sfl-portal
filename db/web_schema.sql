@@ -58,3 +58,22 @@ CREATE TABLE IF NOT EXISTS daily_plan_rows (
   UNIQUE KEY uniq_plan_row (plan_date, user_id, load_type),
   INDEX idx_plan_date (plan_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- One row per changed field per save on the driver roster, in the same spirit as
+-- leg_edits. The roster drives bot dispatch, so a rename or a deactivation must
+-- be traceable. `driver_name` is denormalised so the trail still reads correctly
+-- after a later rename.
+CREATE TABLE IF NOT EXISTS driver_edits (
+  id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+  driver_id       INT          NOT NULL,
+  driver_name     VARCHAR(128) DEFAULT NULL,
+  user_id         INT          NOT NULL,
+  -- Denormalised so the trail survives a user being renamed or removed.
+  username        VARCHAR(64)  NOT NULL,
+  field           VARCHAR(64)  NOT NULL,
+  old_value       TEXT         DEFAULT NULL,
+  new_value       TEXT         DEFAULT NULL,
+  edited_at       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_driver_edit_driver (driver_id),
+  INDEX idx_driver_edit_time   (edited_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
