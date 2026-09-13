@@ -2,7 +2,6 @@
 
 import { useState, type ReactNode } from "react";
 
-import { Card } from "@/components/ui";
 import {
   BAND_CLASSES,
   DELAY_THRESHOLDS,
@@ -40,6 +39,32 @@ function Head({ children }: { children: ReactNode }) {
     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
       {children}
     </thead>
+  );
+}
+
+/**
+ * The surface the selected table sits on. The tab strip above already supplies
+ * the outer card, so this only draws the header rule.
+ */
+function Panel({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <div className="border-b border-slate-100 px-4 py-3">
+        <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+        {subtitle ? (
+          <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
+        ) : null}
+      </div>
+      <div className="px-4 py-3">{children}</div>
+    </div>
   );
 }
 
@@ -337,79 +362,79 @@ export function ReportTabs({
     switch (current.key) {
       case "planned":
         return (
-          <Card
+          <Panel
             title="Planned vs Done"
             subtitle="Planned is entered on the Daily Plan screen; Done is counted from the recorded legs."
           >
             <PlannedVsDoneTable matrix={matrix} />
-          </Card>
+          </Panel>
         );
       case "rm":
         return (
-          <Card
+          <Panel
             title="RM Delivery Summary"
             subtitle="Loaded RM moves, listed as soon as the departure is reported; material detail comes from the bot's rm_loads."
           >
             <RmTable rows={rm} />
-          </Card>
+          </Panel>
         );
       case "fg_sto":
         return (
-          <Card title="FG STO Delivery Summary" subtitle="Loaded legs with load type FG STO.">
+          <Panel title="FG STO Delivery Summary" subtitle="Loaded legs with load type FG STO.">
             <LegTable rows={fgSto} />
-          </Card>
+          </Panel>
         );
       case "spot":
         return (
-          <Card title="Spot Delivery" subtitle="Loaded legs with load type Spot Delivery.">
+          <Panel title="Spot Delivery" subtitle="Loaded legs with load type Spot Delivery.">
             <LegTable rows={spot} />
-          </Card>
+          </Panel>
         );
       case "delayed":
         return (
-          <Card
+          <Panel
             title="Delayed Deliveries Summary"
             subtitle={`Loaded moves only. Arrival ${DELAY_THRESHOLDS.transit}+ min past ETA, or unload ${DELAY_THRESHOLDS.turnaround}+ min.`}
           >
             <DelayedTable rows={delayed} />
-          </Card>
+          </Panel>
         );
       case "driver_location":
         return (
-          <Card
+          <Panel
             title="Driver's Current Location"
             subtitle="Each driver's last recorded leg of the day (column Q of the sheet's Summary tab)."
           >
             <LocationTable rows={driverLocations} first="driver" />
-          </Card>
+          </Panel>
         );
       case "trailer_location":
         return (
-          <Card
+          <Panel
             title="Trailer's Current Location"
             subtitle="Each trailer's last recorded leg of the day (column Q of the sheet's Summary tab)."
           >
             <LocationTable rows={trailerLocations} first="trailer" />
-          </Card>
+          </Panel>
         );
       default: {
         const i = SUMMARY_TABLES.findIndex((t) => t.key === current.key);
         if (i < 0) return null;
         return (
-          <Card title={SUMMARY_TABLES[i].title} subtitle={SUMMARY_TABLES[i].rule}>
+          <Panel title={SUMMARY_TABLES[i].title} subtitle={SUMMARY_TABLES[i].rule}>
             <LegTable rows={summaryTables[i]} />
-          </Card>
+          </Panel>
         );
       }
     }
   }
 
   return (
-    <div className="space-y-4">
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div
         role="tablist"
         aria-label="Reports"
-        className="flex gap-1 overflow-x-auto border-b border-slate-200"
+        className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-slate-100 px-2 py-2"
       >
         {tabs.map((tab) => {
           const isActive = tab.key === current.key;
@@ -420,16 +445,16 @@ export function ReportTabs({
               role="tab"
               aria-selected={isActive}
               onClick={() => setActive(tab.key)}
-              className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition ${
+              className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition ${
                 isActive
-                  ? "border-indigo-600 text-indigo-700"
-                  : "border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                  ? "bg-white font-semibold text-indigo-700 shadow-sm ring-1 ring-slate-200"
+                  : "font-medium text-slate-600 hover:bg-slate-200/70 hover:text-slate-900"
               }`}
             >
               {tab.label}
               <span
                 className={`rounded-full px-1.5 py-0.5 text-[11px] tabular-nums ${
-                  isActive ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-500"
+                  isActive ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/80 text-slate-600"
                 }`}
               >
                 {tab.count}
@@ -439,9 +464,9 @@ export function ReportTabs({
         })}
       </div>
 
-      <div role="tabpanel" aria-label={current.label}>
+      <div role="tabpanel" aria-label={current.label} className="bg-white">
         {content()}
       </div>
-    </div>
+    </section>
   );
 }
