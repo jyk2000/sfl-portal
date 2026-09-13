@@ -1,5 +1,5 @@
 /**
- * Definitions shared by the daily plan screen and the dashboards.
+ * Definitions shared by the daily plan screen and the reports.
  *
  * No server imports here, so Client Components can use these too.
  */

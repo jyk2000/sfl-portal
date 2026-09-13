@@ -70,7 +70,7 @@ export async function savePlanAction(
   try {
     const count = await savePlan(date, entries, user.id);
     revalidatePath("/plans");
-    revalidatePath("/dashboards");
+    revalidatePath("/reports");
     return {
       ok: true,
       message:

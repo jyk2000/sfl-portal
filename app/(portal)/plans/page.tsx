@@ -33,7 +33,7 @@ export default async function PlansPage({
     <div>
       <PageHeader
         title="Daily Plan"
-        description="Enter each driver's planned load counts before the shift. The dashboards show these next to what actually happened."
+        description="Enter each driver's planned load counts before the shift. The reports show these next to what actually happened."
         actions={
           <form method="get" className="flex items-center gap-2">
             <label htmlFor="date" className="text-xs font-medium text-slate-600">

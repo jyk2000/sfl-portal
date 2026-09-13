@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
   // Pin the bundler root to this app. Without it Turbopack walks up to the
   // home directory looking for a lockfile / git root.
   turbopack: { root: process.cwd() },
+  // The reports screen used to be /dashboards; keep old links working.
+  async redirects() {
+    return [{ source: "/dashboards", destination: "/reports", permanent: true }];
+  },
 };
 
 export default nextConfig;

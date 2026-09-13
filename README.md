@@ -92,7 +92,8 @@ app/
     legs/page.tsx        filterable, paginated leg list
     legs/[id]/page.tsx   leg detail: edit form, BOL, per-leg history
     audit/page.tsx       every field change, newest first
-    dashboards/page.tsx  the nine reporting tables (see below)
+    reports/page.tsx      the reporting tables, one per tab (see below)
+    reports/report-tabs.tsx  client-side tab bar for the reports
     plans/page.tsx       daily plan entry (planned counts per driver)
     admin/users/page.tsx user management (administrators only)
   actions/auth.ts        login / logout Server Actions
@@ -107,7 +108,7 @@ lib/
   session.ts / session-token.ts   cookie handling / JWT primitives
   password.ts            scrypt hash + verify
   legs.ts                queries + the audited update
-  dashboards.ts          the nine report queries
+  dashboards.ts          the report queries behind the tabs
   dashboard-defs.ts      load types, lane rules, delay thresholds
   plans.ts               daily plan read/write
   audit.ts, users.ts, format.ts, leg-fields.ts
@@ -117,11 +118,12 @@ scripts/seed-admin.mjs   creates/updates a user
 proxy.ts                 optimistic auth gate for page routes
 ```
 
-## Dashboards
+## Reports
 
-`/dashboards?date=YYYY-MM-DD` (defaults to the most recent day with legs)
-renders, all live from the bot's `shuttle_legs` (the RM table also reads
-`rm_loads`):
+`/reports?date=YYYY-MM-DD` (defaults to the most recent day with legs) shows the
+reporting tables **one tab at a time** — the tab bar lists every table with its
+row count, and only the selected table is rendered. All data is live from the
+bot's `shuttle_legs` (the RM table also reads `rm_loads`):
 
 1. **Planned vs Done** — per team/driver × load type, shown as `planned / done`.
    Planned comes from `/plans`; Done is counted from the recorded legs.
