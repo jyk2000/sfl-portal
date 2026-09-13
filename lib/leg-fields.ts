@@ -6,7 +6,7 @@
  * server still treats this as an allowlist — nothing outside it is ever written.
  */
 
-export type LegFieldType = "text" | "datetime" | "int" | "bool" | "enum";
+export type LegFieldType = "text" | "datetime" | "int" | "bool" | "enum" | "choice";
 
 export interface LegFieldDef {
   name: string;
@@ -29,6 +29,58 @@ export const LEG_STATUS_OPTIONS = [
 ] as const;
 export const DOCUMENT_TYPE_OPTIONS = ["FG", "RM", "UNKNOWN"] as const;
 
+/**
+ * The Load Type list from the dispatcher's sheet — the dropdown on column G of
+ * its Base Form and every date tab. Kept verbatim, including "Wrong
+ * Destination", so a value chosen in the sheet matches a value here.
+ */
+export const LOAD_TYPE_OPTIONS = [
+  "FG STO",
+  "FG DS",
+  "FG CTV",
+  "FG ES",
+  "FG E1",
+  "FG SDS",
+  "OQC Recall",
+  "RM",
+  "RM 3551",
+  "RM Inbound",
+  "IQC Recall",
+  "Spot Delivery",
+  "Wrong Destination",
+] as const;
+
+/** The sheet's Transaction list (column F), for reference. */
+export const TRANSACTION_OPTIONS = [
+  "Empty Pick Up",
+  "Empty Drop",
+  "Load Pick Up",
+  "Load Drop",
+  "Bobtail",
+  "Live Load",
+  "Training",
+  "GPS Test",
+  "Yard Move",
+  "Clock In",
+  "Yard Move Standby",
+] as const;
+
+/** The sheet's location dropdown (columns C and L). */
+export const LOCATION_OPTIONS = [
+  "200F",
+  "200R",
+  "1380",
+  "300",
+  "SDS",
+  "E2F",
+  "E2R",
+  "7634",
+  "3551",
+  "100",
+  "E1",
+  "210",
+] as const;
+
 export const LEG_FIELDS: readonly LegFieldDef[] = [
   { name: "trailer_number", label: "Trailer #", type: "text", group: "Identity" },
   { name: "bol_number", label: "BOL #", type: "text", group: "Identity" },
@@ -46,7 +98,14 @@ export const LEG_FIELDS: readonly LegFieldDef[] = [
     options: LOAD_STATUS_OPTIONS,
     group: "Identity",
   },
-  { name: "load_type", label: "Load type", type: "text", group: "Identity" },
+  {
+    name: "load_type",
+    label: "Load type",
+    type: "choice",
+    options: LOAD_TYPE_OPTIONS,
+    group: "Identity",
+    help: "The sheet's Load Type list. A value the list does not carry (one the bot wrote) is kept as-is.",
+  },
   {
     name: "leg_status",
     label: "Leg status",
@@ -85,6 +144,27 @@ export const LEG_FIELDS: readonly LegFieldDef[] = [
 ];
 
 export const LEG_FIELD_NAMES: readonly string[] = LEG_FIELDS.map((f) => f.name);
+
+/**
+ * The fields the create form offers, in form order. Only a driver, a departure
+ * and the two locations are required; the rest match the table's defaults.
+ */
+export const LEG_CREATE_FIELDS: readonly string[] = [
+  "leg_status",
+  "document_type",
+  "load_status",
+  "load_type",
+  "trailer_number",
+  "bol_number",
+  "origin_location",
+  "dock_number",
+  "destination_location",
+  "do_number",
+  "rm_seq",
+  "departure_time",
+  "arrival_time",
+  "finished_time",
+];
 
 export const LEG_FIELD_BY_NAME: Readonly<Record<string, LegFieldDef>> =
   Object.fromEntries(LEG_FIELDS.map((f) => [f.name, f]));

@@ -89,7 +89,9 @@ app/
   login/                 public sign-in page + form
   (portal)/              authenticated area (nav + auth gate)
     page.tsx             status dashboard (live KPIs from shuttle_legs)
-    legs/page.tsx        filterable, paginated leg list
+    legs/page.tsx        filterable, paginated leg list (with an Add Leg button)
+    legs/new/page.tsx    add a leg the bot never captured
+    legs/leg-field-input.tsx  the shared labelled control for one leg field
     legs/[id]/page.tsx   leg detail: edit form, BOL, per-leg history
     audit/page.tsx       every field change, newest first
     reports/page.tsx      the reporting tables, one per tab (see below)
@@ -132,6 +134,20 @@ it ascending, clicking it again flips the direction. Ordering is built from a
 fixed map in `lib/legs.ts`, never from the query string, so an unknown `sort`
 value falls back to the departure time. A non-default sort survives paging and
 filter changes.
+
+**Adding a leg.** The list has an **Add Leg** button opening `/legs/new`, for a
+delivery the bot never captured: pick the driver, the origin and destination
+(the fields suggest the codes the bot uses), the times, and so on. Only the
+driver and the departure are required. `eta_minutes` is filled from
+`location_distances` when one exists, and the leg gets a `created` row in
+`leg_edits`, so a hand-added leg is as traceable as a correction.
+
+**Dropdowns.** `Load type` offers the sheet's Load Type list (column G of its
+Base Form), and `load_status` its `EMPTY`/`LOADED` values. The sheet's
+`Transaction` list (column F) and its location list are recorded in
+`lib/leg-fields.ts` alongside them. A select keeps a value its list does not
+carry as a `(not in list)` option — the bot writes load types the sheet has no
+entry for — so opening and saving a leg can never silently blank one.
 
 Columns are Depart, **ETA**, **Arrival**, Driver, Status, Load,
 Origin → Destination, Trailer, BOL, Type, Round.

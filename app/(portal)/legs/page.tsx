@@ -141,6 +141,14 @@ export default async function LegsPage({
       <PageHeader
         title="Shuttle Legs"
         description="Every leg the bot recorded. Open a leg to correct it — changes are audit-logged."
+        actions={
+          <Link
+            href="/legs/new"
+            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Add Leg
+          </Link>
+        }
       />
 
       <Card className="mb-4">

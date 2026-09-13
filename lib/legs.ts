@@ -3,7 +3,11 @@ import "server-only";
 import { getPool, query, queryOne } from "@/lib/db";
 import { ETA_CLOCK, ETA_JOIN, ETA_MINUTES } from "@/lib/eta";
 import { fromDatetimeLocal } from "@/lib/format";
-import { LEG_FIELD_BY_NAME, type LegFieldDef } from "@/lib/leg-fields";
+import {
+  LEG_CREATE_FIELDS,
+  LEG_FIELD_BY_NAME,
+  type LegFieldDef,
+} from "@/lib/leg-fields";
 
 export interface LegListRow {
   id: number;
@@ -273,6 +277,12 @@ function normalizeIncoming(
       if (s === "") return null;
       return def.options?.includes(s) ? s : INVALID;
     }
+    case "choice": {
+      // A dropdown whose list is not exhaustive: keep whatever came back, so a
+      // value the sheet does not carry (one the bot wrote) survives a save.
+      const s = String(raw ?? "").trim();
+      return s === "" ? null : s;
+    }
     default: {
       const s = String(raw ?? "").trim();
       return s === "" ? null : s;
@@ -302,6 +312,91 @@ export interface LegChange {
   field: string;
   oldValue: string | null;
   newValue: string | null;
+}
+
+export interface LegCreateResult {
+  id: number;
+}
+
+/**
+ * Insert a leg by hand, for a delivery the bot never captured. The same
+ * allowlist and normalisation as an edit apply, and the new leg gets an audit
+ * row so its origin is as traceable as a correction.
+ *
+ * `eta_minutes` is filled from `location_distances` when the caller leaves it
+ * blank, which is the lookup bot/eta.py would have done at departure.
+ */
+export async function createLeg(
+  input: Record<string, unknown>,
+  actor: { id: number; username: string },
+): Promise<LegCreateResult> {
+  const columns: string[] = [];
+  const params: unknown[] = [];
+
+  const userId = Number(input.user_id);
+  if (!Number.isFinite(userId)) throw new Error("Pick a driver.");
+
+  columns.push("user_id");
+  params.push(userId);
+
+  for (const name of LEG_CREATE_FIELDS) {
+    const def = LEG_FIELD_BY_NAME[name];
+    if (!def) continue;
+
+    const value = normalizeIncoming(def, input[name]);
+    if (value === INVALID) throw new Error(`Invalid value for "${def.label}"`);
+    if (value === null) continue;
+
+    columns.push(`\`${name}\``);
+    params.push(value);
+  }
+
+  const originIndex = columns.indexOf("`origin_location`");
+  const destinationIndex = columns.indexOf("`destination_location`");
+  if (originIndex < 0 || destinationIndex < 0) {
+    throw new Error("Origin and destination are required.");
+  }
+  if (!columns.includes("`departure_time`")) {
+    throw new Error("A departure time is required.");
+  }
+
+  const conn = await getPool().getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [distance] = await conn.query(
+      `SELECT FLOOR(COALESCE(weighted_minutes, drive_minutes)) AS minutes
+         FROM location_distances
+        WHERE origin_code = ? AND destination_code = ?`,
+      [params[originIndex], params[destinationIndex]],
+    );
+    const minutes = (distance as { minutes: number | null }[])[0]?.minutes;
+    if (minutes !== null && minutes !== undefined) {
+      columns.push("`eta_minutes`");
+      params.push(minutes);
+    }
+
+    const [result] = await conn.query(
+      `INSERT INTO shuttle_legs (${columns.join(", ")})
+       VALUES (${columns.map(() => "?").join(", ")})`,
+      params,
+    );
+    const legId = (result as { insertId: number }).insertId;
+
+    await conn.query(
+      `INSERT INTO leg_edits (leg_id, user_id, username, field, old_value, new_value)
+       VALUES (?, ?, ?, 'created', NULL, ?)`,
+      [legId, actor.id, actor.username, `leg #${legId}`],
+    );
+
+    await conn.commit();
+    return { id: legId };
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
 }
 
 export interface LegUpdateResult {
